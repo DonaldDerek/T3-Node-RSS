@@ -1,53 +1,41 @@
+
 /**
- * Module dependencies.
+ * Node T3 RSS - Newsletter (MailChimp)
  */
 
-var express = require('express')
-  , http = require('http')
-  , path = require('path')
-  , FeedParser = require('feedparser')
-  , request = require('request')
-  , $ = require('jquery')
-  , fs = require('fs');;
+var express = require('express'),
+	http = require('http'),
+	path = require('path'),
+	FeedParser = require('feedparser'),
+    request = require('request'),
+    $ = require('jquery'),
+	fs = require('fs'),
+	RSS = require('rss');
 
 var app = express();
 
 // all environments
-app.set('port', process.env.PORT || 3000);
-app.set('views', __dirname + '/views');
-app.set('view engine', 'jade');
-app.use(express.favicon());
+app.set('port', process.env.PORT || 8080);
 app.use(express.logger('dev'));
 app.use(express.bodyParser());
 app.use(express.methodOverride());
-app.use(app.router);
 app.use(express.static(path.join(__dirname, 'public')));
 
-
 //Process the English Feed
-app.get('/rss/en', function(req, res){
-    res.header("Access-Control-Allow-Origin", "*");  
-    res.header('Access-Control-Allow-Methods', 'GET');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-    
-    //Feed Directory
-    var feedDir = __dirname + '/public/feeds';
-    
-    //Read Feed JSON File, parse it then pull out the date
-    fs.readFile(feedDir + '/en.json', 'utf8', function (err,data) {
-      if (err) {
-        return console.log(err);
-      }
-      var jsonParsed = JSON.parse(data)
-      , feedDate = jsonParsed[0].date
-      , dateObj = new Date(feedDate)
-      , dateNow = new Date();
-      
-      //TO CHANGE: Cache for 1 month to prevent Apple Disapproval Fuck you Grapes
-      if(dateNow - dateObj >= 12*60*60*1000){
+app.get('/newsletter/en', function(req, res){
     
         var jsonObj=[];
+        var feed = new RSS({
+        			title: 'T3ME - Weekly Digest',
+        			description: 'Gadgets, Reviews and Technology News For the Middle East and Arabic World',
+        			feed_url: 'http://t3me.com/rss/all',
+        			site_url: 'http://t3me.com',
+        			managingEditor: 'Simon Khoury',
+        			webMaster: 'Donald Derek Haddad',
+        			copyright: '2013 MPS',
+        			language: 'en',
+        			ttl: '60'
+    			});
         
         $("<div class='articles'></div>").appendTo("body");
         
@@ -89,10 +77,12 @@ app.get('/rss/en', function(req, res){
               var article = $(".article ").html()
               //Cleaning Summary
               cleanSummary = $(summary).text($(summary).text());
+
+              var fullSummary = $("<div><img src='"+image+"' width='240'/><p>"+cleanSummary.text()+"</p></div>");
               
               //adding article to the jsonObj and flush "bad written" articles
               if($(summary).text().length > 3 && (type === "news" || type === "features")){
-                  jsonObj.push({guid: guid,
+                jsonObj.push({guid: guid,
                                 type: type, 
                                 image: image,
                                 title: item.title, 
@@ -101,7 +91,18 @@ app.get('/rss/en', function(req, res){
                                 categories: item.categories,
                                 author: item.author,
                                 pubDate: item.pubdate});
-             }                        
+             }
+
+			//Loop over data and add to feed 
+			feed.item({
+			    title:  item.title,
+			    description: fullSummary.html(),
+			    url: item.guid, 
+			    guid: guid,
+			    categories: item.categories,
+			    author: item.author, 
+			    date: item.pubdate
+			});         
             
             //Remove from DOM
             $(".article").remove();
@@ -109,60 +110,34 @@ app.get('/rss/en', function(req, res){
     
         })
         .on('end', function(){
-            
-            var jsonRes = []; 
-            
-            //Add the current Time & Date
-            jsonRes.push({date:dateNow, articles:jsonObj});
-            
-            //Save to file
-            fs.writeFile( feedDir + "/en.json", JSON.stringify(jsonRes), function(err) {
-                if(err) {
-                    console.log(err);
-                } else {
-                    console.log("JSON-RSS file has been saved on " + dateNow);
-                }
-            });
-            
-            //Spit back Response
-            return res.send(jsonRes);
+
+			// cache the xml
+			var xml = feed.xml();   
+			res.type('rss');
+
+			//Spit back Response
+            return res.send(xml);
         })
-     
-      }
-      else{
-        console.log("JSON-RSS file was fetched from file at " + dateNow);
-        return res.send(jsonParsed);   
-      }
-      
-    });   
 });
 
-//Process the Arabic Feed
-app.get('/rss/ar', function(req, res){
-    res.header("Access-Control-Allow-Origin", "*");  
-    res.header('Access-Control-Allow-Methods', 'GET');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-
-    //Feed Directory
-    var feedDir = __dirname + '/public/feeds';
-
-    //Read Feed JSON File, parse it then pull out the date
-    fs.readFile(feedDir + '/ar.json', 'utf8', function (err,data) {
-      if (err) {
-        return console.log(err);
-      }
-      var jsonParsed = JSON.parse(data)
-      , feedDate = jsonParsed[0].date
-      , dateObj = new Date(feedDate)
-      , dateNow = new Date();
-
-      if(dateNow - dateObj >= 12*60*60*1000){
+//Process the English Feed
+app.get('/newsletter/ar', function(req, res){
 
         var jsonObj=[];
-
+        var feed = new RSS({
+        			title: 'T3ME - Weekly Digest',
+        			description: 'Gadgets, Reviews and Technology News For the Middle East and Arabic World',
+        			feed_url: 'http://t3me.com/rss/all',
+        			site_url: 'http://t3me.com',
+        			managingEditor: 'Simon Khoury',
+        			webMaster: 'Donald Derek Haddad',
+        			copyright: '2013 MPS',
+        			language: 'ar',
+        			ttl: '60'
+    			});
+        
         $("<div class='articles'></div>").appendTo("body");
-
+        
         request('http://t3me.com/ar/rss/all')
         .pipe(new FeedParser())
         .on('error', function(error) {
@@ -175,31 +150,38 @@ app.get('/rss/ar', function(req, res){
         .on('readable', function () {
           var stream = this, item;
           while (item = stream.read()) {
-
+                
               //DOM Maniupulation: Cleaning description from related links and authors
               $("<div class='article'>"+item.description+"</div>").appendTo("body");   
               $(".article").find('p').eq(-1).remove();   
-              $(".article").find('table').eq(-1).remove();  
-
-
+              $(".article").find('table').eq(-1).remove();
+              $(".article").find('a').attr('target', '_system');  
+              
+              
               //Constructing Summar, type and proper guid
               var summary = $(".article").find('h3').first()
               , image = $(".article").find('img').first().attr('src')
               , guidStr = item.guid
               , arr = guidStr.split('/')
-              , type = arr[4]
+              , type = arr[3]
               , guid = arr[arr.length-1];
-
+              
               //DOM Manipulation: remove first image then construct the article
               $(".article").find('img').first().remove();  
+              
+              if(type === "news"){
+                $(".article").find('table').eq(-1).remove();  
+              }
+              
               var article = $(".article ").html()
-
               //Cleaning Summary
               cleanSummary = $(summary).text($(summary).text());
 
+              var fullSummary = $("<div><img src='"+image+"' width='240'/><p>"+cleanSummary.text()+"</p></div>");
+              
               //adding article to the jsonObj and flush "bad written" articles
               if($(summary).text().length > 3 && (type === "news" || type === "features")){
-                  jsonObj.push({guid: decodeURIComponent(guid),
+                jsonObj.push({guid: guid,
                                 type: type, 
                                 image: image,
                                 title: item.title, 
@@ -208,42 +190,34 @@ app.get('/rss/ar', function(req, res){
                                 categories: item.categories,
                                 author: item.author,
                                 pubDate: item.pubdate});
-             }                        
+             }
 
+			//Loop over data and add to feed 
+			feed.item({
+			    title:  item.title,
+			    description: fullSummary.html(),
+			    url: item.guid, 
+			    guid: guid,
+			    categories: item.categories,
+			    author: item.author, 
+			    date: item.pubdate
+			});         
+            
             //Remove from DOM
             $(".article").remove();
           }
-
+    
         })
         .on('end', function(){
 
-            var jsonRes = []; 
-
-            //Add the current Time & Date
-            jsonRes.push({date:dateNow, articles:jsonObj});
-
-            //Save to file
-            fs.writeFile( feedDir + "/ar.json", JSON.stringify(jsonRes), function(err) {
-                if(err) {
-                    console.log(err);
-                } else {
-                    console.log("JSON-RSS file has been saved on " + dateNow);
-                }
-            });
-
-            //Spit back Response
-            return res.send(jsonRes);
+			// cache the xml
+			var xml = feed.xml();   
+			res.set('Content-Type', 'application/rss+xml');
+			res.set('encoding', 'utf8');
+			//Spit back Response
+            return res.send(xml);
         })
-
-      }
-      else{
-        console.log("JSON-RSS file was fetched from file at " + dateNow);
-        return res.send(jsonParsed);   
-      }
-
-    });   
 });
-
 
 
 http.createServer(app).listen(app.get('port'), function(){
